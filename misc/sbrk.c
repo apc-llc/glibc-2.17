@@ -32,6 +32,9 @@ extern int __libc_multiple_libcs attribute_hidden;
 void *
 __sbrk (intptr_t increment)
 {
+#if 1
+  return (void *) -1;
+#else
   void *oldbrk;
 
   /* If this is not part of the dynamic library or the library is used
@@ -54,6 +57,7 @@ __sbrk (intptr_t increment)
     return (void *) -1;
 
   return oldbrk;
+#endif
 }
 libc_hidden_def (__sbrk)
 weak_alias (__sbrk, sbrk)
