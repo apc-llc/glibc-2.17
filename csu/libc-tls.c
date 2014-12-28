@@ -16,6 +16,10 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
+/* <sys/types.h> must come before <sys/mman.h> due to a bug in the headers. */
+#include <stdlib.h>
+#include <sys/types.h>	
+#include <sys/mman.h>
 #include <errno.h>
 #include <ldsodefs.h>
 #include <tls.h>
@@ -108,6 +112,28 @@ init_static_tls (size_t memsz, size_t align)
   GL(dl_tls_static_nelem) = GL(dl_tls_max_dtv_idx);
 }
 
+void *
+alloc_tlsblock(size_t size)
+{
+  void *tlsblock = __sbrk(size);
+  if (tlsblock != (void *) -1)
+    return tlsblock;
+
+  /*
+   * Allocate TLS block space without using __sbrk, when it is
+   * disabled.
+   *
+   * This will likely waste most of a 64k page, but that probably
+   * doesn't matter. If the program doesn't use malloc() it
+   * probably won't need to allocate much else.
+   *
+   * Note that if this allocation fails, it might crash setting
+   * errno, because TLS is not set up yet.
+   */
+  return mmap(NULL, size, PROT_READ | PROT_WRITE,
+               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
 void
 __libc_setup_tls (size_t tcbsize, size_t tcbalign)
 {
@@ -146,10 +172,10 @@ __libc_setup_tls (size_t tcbsize, size_t tcbalign)
      IE-model TLS.  */
 #if TLS_TCB_AT_TP
   tcb_offset = roundup (memsz + GL(dl_tls_static_size), tcbalign);
-  tlsblock = __sbrk (tcb_offset + tcbsize + max_align);
+  tlsblock = alloc_tlsblock (tcb_offset + tcbsize + max_align);
 #elif TLS_DTV_AT_TP
   tcb_offset = roundup (tcbsize, align ?: 1);
-  tlsblock = __sbrk (tcb_offset + memsz + max_align
+  tlsblock = alloc_tlsblock (tcb_offset + memsz + max_align
 		     + TLS_PRE_TCB_SIZE + GL(dl_tls_static_size));
   tlsblock += TLS_PRE_TCB_SIZE;
 #else
