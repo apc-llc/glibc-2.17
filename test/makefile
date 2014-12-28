@@ -6,6 +6,6 @@ test: test.cu
 clean:
 	rm -rf test
 
-test:
+run:
 	LD_LIBRARY_PATH=$LD_LIBRAYR_PATH:/usr/lib ./test
 
